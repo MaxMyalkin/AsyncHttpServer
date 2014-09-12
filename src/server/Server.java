@@ -13,8 +13,7 @@ public class Server {
 
         final AsynchronousServerSocketChannel server =
                 AsynchronousServerSocketChannel.open().bind(new InetSocketAddress(PORT));
-
-        final ThreadPool pool = new ThreadPool(THREADS);
+        final ThreadPool pool = new ThreadPool();
 
         server.accept(null, new CompletionHandler<AsynchronousSocketChannel, Void>() {
             @Override
@@ -31,16 +30,7 @@ public class Server {
         });
 
         while (true) {
+            // здесь был слип
         }
-        /*while (true) {
-            try {
-                Socket socket = serverSocket.accept();
-                pool.addSocket(socket);
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-                break;
-            }
-        }*/
     }
 }

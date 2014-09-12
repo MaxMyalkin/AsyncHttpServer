@@ -5,16 +5,16 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 
 
-public class SocketWriteHandler<K, V> implements CompletionHandler<K, V> {
+public class SocketWriteHandler<K, Boolean> implements CompletionHandler<K, Boolean> {
 
-    AsynchronousSocketChannel socketChannel;
+    private AsynchronousSocketChannel socketChannel;
 
     public SocketWriteHandler(AsynchronousSocketChannel socketChannel) {
         this.socketChannel = socketChannel;
     }
 
     @Override
-    public void completed(K result, V attachment) {
+    public void completed(K result, Boolean attachment) {
         try {
             socketChannel.close();
         } catch (IOException e) {
@@ -23,7 +23,7 @@ public class SocketWriteHandler<K, V> implements CompletionHandler<K, V> {
     }
 
     @Override
-    public void failed(Throwable exc, V attachment) {
+    public void failed(Throwable exc, Boolean attachment) {
         try {
             socketChannel.close();
         } catch (IOException e) {

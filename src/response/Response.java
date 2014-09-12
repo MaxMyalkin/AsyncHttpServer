@@ -9,8 +9,7 @@ import java.util.TimeZone;
 public class Response {
 
 
-    private int codeNumeric;
-    private String codeTranscript;
+    private int code;
     private long length = 0;
     private String suffix = "";
 
@@ -24,25 +23,13 @@ public class Response {
     }
 
     public String getCode() {
-        return codeNumeric + " " + codeTranscript;
+        if(code == 0)
+            code = 200;
+        return code + " " + Code.getCode(code);
     }
 
     public void setCode(int code) {
-        this.codeNumeric = code;
-        switch (code) {
-            case 200:
-                codeTranscript = "OK";
-                break;
-            case 403:
-                codeTranscript = "FORBIDDEN";
-                break;
-            case 404:
-                codeTranscript = "NOT FOUND";
-                break;
-            case 405:
-                codeTranscript = "METHOD NOT ALLOWED";
-                break;
-        }
+        this.code = code;
     }
 
     public static String getTime() {
@@ -57,7 +44,7 @@ public class Response {
         String type = Type.get(suffix);
         if(type == null)
             type = "content/unknown";
-        return  "HTTP/1.1 " + getCode() + " \r\n" +
+        return  "HTTP/1.1 " + getCode() + "\r\n" +
                 "Server: WebServer\r\n" +
                 "Date: " + getTime() + "\r\n" +
                 "Content-Type: " + type + "\r\n" +

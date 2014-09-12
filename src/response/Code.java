@@ -1,33 +1,18 @@
 package response;
 
+import java.util.HashMap;
 
 public class Code {
-    private int numeric;
-    private String transcript;
+    private static final HashMap<Integer, String> codes = new HashMap<>();
 
-    public Code(int code) {
-        numeric = code;
-        switch (code) {
-            case 200:
-                transcript = "OK";
-                break;
-            case 403:
-                transcript = "FORBIDDEN";
-                break;
-            case 404:
-                transcript = "NOT FOUND";
-                break;
-            case 405:
-                transcript = "METHOD NOT ALLOWED";
-                break;
-        }
+    static {
+        codes.put(200, "OK");
+        codes.put(403, "Forbidden");
+        codes.put(404, "Not Found");
+        codes.put(405, "Method Not Allowed");
     }
 
-    public int getNumeric() {
-        return numeric;
-    }
-
-    public String getTranscript() {
-        return transcript;
+    public static String getCode(Integer code) {
+        return codes.get(code);
     }
 }

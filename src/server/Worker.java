@@ -5,30 +5,23 @@ import handlers.SocketReadHandler;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Worker implements Runnable {
     public static final int TIMEOUT = 100;
+
     private AsynchronousSocketChannel channel;
-    private ThreadPool pool;
-    private AtomicInteger atomicInteger = new AtomicInteger(1);
-
-    public Worker(ThreadPool pool) {
-        this.pool = pool;
-    }
-
-    public synchronized void setChannel(AsynchronousSocketChannel channel) throws IOException {
-        this.channel = channel;
-        notify();
-    }
+    private ConcurrentLinkedQueue<AsynchronousSocketChannel> channels = new ConcurrentLinkedQueue<>();
 
     public synchronized void run() {
         while (true) {
+            channel = channels.poll();
             if(channel == null) {
                 try {
                     wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
+                    //continue;
                 }
             }
             try {
@@ -38,7 +31,6 @@ public class Worker implements Runnable {
             }
             finally {
                 channel = null;
-                pool.addWorker(this);
             }
         }
     }
@@ -51,6 +43,13 @@ public class Worker implements Runnable {
         catch (Exception e) {
             e.printStackTrace();
         }
+    }
 
+    public synchronized void addChannel(AsynchronousSocketChannel channel) {
+        if(channel != null) {
+            channels.add(channel);
+            this.channel = channel;
+            notify();
+        }
     }
 }

@@ -61,6 +61,7 @@ public class Handler {
         try {
             if(!file.getCanonicalPath().contains(DOCUMENT_ROOT)) {
                 response.setCode(403);
+                writeToSocket();
             } else {
                 if (file.isDirectory()) {
                     dir += "index.html";
@@ -70,28 +71,29 @@ public class Handler {
                 }
                 if (!file.exists()) {
                     throw new FileNotFoundException("File not found");
-                }
-                response.setLength(file.length());
-                if (request.getMethod().equals("GET")) {
-                    AsynchronousFileChannel fileChannel = AsynchronousFileChannel.open(file.toPath(), StandardOpenOption.READ);
-                    ByteBuffer buffer = ByteBuffer.allocate((int) file.length());
-                    fileChannel.read(buffer, 0, null, new FileReadHandler<Integer, Void>(this, buffer, fileChannel));
-                    response.setCode(200);
-                    return;
-                }
-                if (request.getMethod().equals("HEAD")) {
-                    response.setCode(200);
-                    writeToSocket();
-                    return;
-                }
+                } else
+                    response.setLength(file.length());
 
-                response.setCode(405);
+                switch (request.getMethod()) {
+                    case "GET":
+                        AsynchronousFileChannel fileChannel = AsynchronousFileChannel.open(file.toPath(), StandardOpenOption.READ);
+                        ByteBuffer buffer = ByteBuffer.allocate((int) file.length());
+                        fileChannel.read(buffer, 0, null, new FileReadHandler<Integer, Void>(this, buffer, fileChannel));
+                        response.setCode(200);
+                        break;
+                    case "HEAD":
+                        response.setCode(200);
+                        writeToSocket();
+                        break;
+                    case "POST":
+                        response.setCode(405);
+                        writeToSocket();
+                        break;
+                }
             }
-            writeToSocket();
         }
         catch (FileNotFoundException e) {
             e.printStackTrace();
-            response.setLength(0);
             if(isDirectory)
                 response.setCode(403);
             else
@@ -105,24 +107,36 @@ public class Handler {
 
     private void writeToSocket() {
         String responseStr = response.getHeader();
-        ByteBuffer buffer = ByteBuffer.allocate(responseStr.length()).put(responseStr.getBytes());
+        ByteBuffer buffer = ByteBuffer.wrap(responseStr.getBytes());
         buffer.position(0);
         try {
             socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, buffer.capacity());
         } catch (IOException e) {
             e.printStackTrace();
         }
-        socketChannel.write(buffer, null, new SocketWriteHandler<Integer, Void>(socketChannel));
+        SocketWriteHandler<Integer, Boolean> handler = new SocketWriteHandler<>(socketChannel);
+        socketChannel.write(buffer, null, handler);
+
     }
 
     public void writeToSocket(ByteBuffer buffer) {
-        int length = response.getHeader().length() + buffer.capacity();
+        String header = response.getHeader();
+        int length = header.length() + buffer.capacity();
         try {
-            buffer.flip();
-            ByteBuffer newB = ByteBuffer.allocate(length).put(ByteBuffer.wrap(response.getHeader().getBytes())).put(buffer);
-            socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, newB.capacity());
-            newB.position(0);
-            socketChannel.write(newB, null, new SocketWriteHandler<Integer, Void>(socketChannel));
+            buffer.position(0);
+            ByteBuffer newBuffer = ByteBuffer.allocate(length)
+                    .put(header.getBytes())
+                    .put(buffer);
+            socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, newBuffer.capacity());
+            SocketWriteHandler<Integer, Boolean> handler = new SocketWriteHandler<>(socketChannel);
+            newBuffer.position(0);
+            /*socketChannel.write(ByteBuffer.wrap(header.getBytes()));
+            while (buffer.hasRemaining()) {
+                socketChannel.write();
+            }
+            socketChannel.write(newBuffer);
+            socketChannel.close();*/
+            socketChannel.write(newBuffer, null, handler);
         } catch (IOException e) {
             e.printStackTrace();
         }

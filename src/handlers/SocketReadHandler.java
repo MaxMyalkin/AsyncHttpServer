@@ -18,7 +18,8 @@ public class SocketReadHandler<K, V> implements CompletionHandler<K, V> {
     @Override
     public void completed(K result, V attachment) {
         try {
-            Handler handler = new Handler(new String(buffer.array()), socketChannel);
+            String request = new String(buffer.array());
+            Handler handler = new Handler(request, socketChannel);
             handler.parseRequest();
         } catch (IOException e) {
             e.printStackTrace();
