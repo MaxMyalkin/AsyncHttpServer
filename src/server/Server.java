@@ -7,12 +7,14 @@ import java.nio.channels.CompletionHandler;
 
 public class Server {
     public static final int PORT = 9000;
-    public static final int THREADS = 4;
+    public static final int THREADS = 8;
+    public static final int BACKLOG = 100;
 
     public static void main(String[] args) throws Throwable {
 
         final AsynchronousServerSocketChannel server =
-                AsynchronousServerSocketChannel.open().bind(new InetSocketAddress(PORT));
+                AsynchronousServerSocketChannel.open().bind(new InetSocketAddress(PORT), BACKLOG);
+
         final ThreadPool pool = new ThreadPool();
 
         server.accept(null, new CompletionHandler<AsynchronousSocketChannel, Void>() {
@@ -30,7 +32,6 @@ public class Server {
         });
 
         while (true) {
-            // здесь был слип
         }
     }
 }

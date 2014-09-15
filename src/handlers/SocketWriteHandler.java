@@ -1,29 +1,36 @@
 package handlers;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 
 
-public class SocketWriteHandler<K, Boolean> implements CompletionHandler<K, Boolean> {
+public class SocketWriteHandler implements CompletionHandler<Integer, Void> {
 
     private AsynchronousSocketChannel socketChannel;
+    private ByteBuffer buffer;
 
-    public SocketWriteHandler(AsynchronousSocketChannel socketChannel) {
+    public SocketWriteHandler(AsynchronousSocketChannel socketChannel, ByteBuffer buffer) {
         this.socketChannel = socketChannel;
+        this.buffer = buffer;
     }
 
     @Override
-    public void completed(K result, Boolean attachment) {
-        try {
-            socketChannel.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+    public void completed(Integer result, Void attachment) {
+        if(buffer.hasRemaining()) {
+            socketChannel.write(buffer, null, this);
+        } else {
+            try {
+                socketChannel.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
     @Override
-    public void failed(Throwable exc, Boolean attachment) {
+    public void failed(Throwable exc, Void attachment) {
         try {
             socketChannel.close();
         } catch (IOException e) {

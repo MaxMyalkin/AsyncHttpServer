@@ -1,8 +1,7 @@
 package handlers;
 
 
-import request.Request;
-import response.Response;
+import response.Parameters;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -16,97 +15,66 @@ import java.nio.file.StandardOpenOption;
 public class Handler {
     public static final String DOCUMENT_ROOT = "/home/maxim/Projects/HighLoad/WebServer/static";
 
-    private Request request;
     private AsynchronousSocketChannel socketChannel;
-    private Response response;
+    private Parameters parameters;
 
     public Handler(String request, AsynchronousSocketChannel socketChannel) {
-        this.request = new Request(request);
         this.socketChannel = socketChannel;
-        this.response = new Response();
+        parameters = new Parameters(request);
     }
 
     public void parseRequest() throws IOException {
-        String requestStr = request.getRequest();
-        int firstLine = requestStr.indexOf("\r");
-        int spaceIdx = requestStr.indexOf(" ");
-        int httpIdx = requestStr.indexOf("HTTP/1.");
-        int queryIdx = requestStr.indexOf("?");
-        if(firstLine != -1) {
-            if(spaceIdx != -1 && spaceIdx <= firstLine)
-                request.setMethod(requestStr.substring(0, spaceIdx).trim());
-            if(queryIdx != -1 && queryIdx < httpIdx) {
-                request.setPath(requestStr.substring(spaceIdx, queryIdx).trim());
-            } else {
-                request.setPath(requestStr.substring(spaceIdx, httpIdx).trim());
-            }
-            String path = request.getPath();
-            if(path != null) {
-                int suffixIdx = path.lastIndexOf(".");
-                if (suffixIdx != -1) {
-                    request.setSuffix(path.substring(suffixIdx, path.length()));
-                }
-            }
-            response.setSuffix(request.getSuffix());
-            readFile();
-        }
-
+        readFile();
     }
 
 
     private void readFile() {
-        boolean isDirectory = false;
-        String dir = DOCUMENT_ROOT + request.getPath();
-        File file = new File(dir);
-        try {
-            if(!file.getCanonicalPath().contains(DOCUMENT_ROOT)) {
-                response.setCode(403);
-                writeToSocket();
-            } else {
-                if (file.isDirectory()) {
-                    dir += "index.html";
-                    file = new File(dir);
-                    isDirectory = true;
-                    response.setSuffix(".html");
-                }
-                if (!file.exists()) {
-                    throw new FileNotFoundException("File not found");
-                } else
-                    response.setLength(file.length());
+        if(parameters.getPath() != null) {
+            boolean isDirectory = false;
+            String dir = DOCUMENT_ROOT + parameters.getPath();
+            File file = new File(dir);
+            try {
+                if (!file.getCanonicalPath().contains(DOCUMENT_ROOT)) {
+                    parameters.setCode(403);
+                    writeToSocket();
+                } else {
+                    if (file.isDirectory()) {
+                        dir += "index.html";
+                        file = new File(dir);
+                        isDirectory = true;
+                        parameters.setSuffix(".html");
+                    }
+                    if (!file.exists()) {
+                        throw new FileNotFoundException("File not found");
+                    } else
+                        parameters.setLength(file.length());
 
-                switch (request.getMethod()) {
-                    case "GET":
-                        AsynchronousFileChannel fileChannel = AsynchronousFileChannel.open(file.toPath(), StandardOpenOption.READ);
-                        ByteBuffer buffer = ByteBuffer.allocate((int) file.length());
-                        fileChannel.read(buffer, 0, null, new FileReadHandler<Integer, Void>(this, buffer, fileChannel));
-                        response.setCode(200);
-                        break;
-                    case "HEAD":
-                        response.setCode(200);
-                        writeToSocket();
-                        break;
-                    case "POST":
-                        response.setCode(405);
-                        writeToSocket();
-                        break;
+                    switch (parameters.getMethod()) {
+                        case "GET":
+                            AsynchronousFileChannel fileChannel = AsynchronousFileChannel.open(file.toPath(), StandardOpenOption.READ);
+                            ByteBuffer buffer = ByteBuffer.allocate((int) file.length());
+                            fileChannel.read(buffer, 0, null, new FileReadHandler<Integer, Void>(this, buffer, fileChannel));
+                            break;
+                        default:
+                            writeToSocket();
+                    }
                 }
+
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                if (isDirectory)
+                    parameters.setCode(403);
+                else
+                    parameters.setCode(404);
+                writeToSocket();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        }
-        catch (FileNotFoundException e) {
-            e.printStackTrace();
-            if(isDirectory)
-                response.setCode(403);
-            else
-                response.setCode(404);
-            writeToSocket();
-        }
-        catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
     private void writeToSocket() {
-        String responseStr = response.getHeader();
+        String responseStr = parameters.getHeader();
         ByteBuffer buffer = ByteBuffer.wrap(responseStr.getBytes());
         buffer.position(0);
         try {
@@ -114,13 +82,13 @@ public class Handler {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        SocketWriteHandler<Integer, Boolean> handler = new SocketWriteHandler<>(socketChannel);
+        SocketWriteHandler handler = new SocketWriteHandler(socketChannel, buffer);
         socketChannel.write(buffer, null, handler);
 
     }
 
     public void writeToSocket(ByteBuffer buffer) {
-        String header = response.getHeader();
+        String header = parameters.getHeader();
         int length = header.length() + buffer.capacity();
         try {
             buffer.position(0);
@@ -128,14 +96,8 @@ public class Handler {
                     .put(header.getBytes())
                     .put(buffer);
             socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, newBuffer.capacity());
-            SocketWriteHandler<Integer, Boolean> handler = new SocketWriteHandler<>(socketChannel);
+            SocketWriteHandler handler = new SocketWriteHandler(socketChannel, newBuffer);
             newBuffer.position(0);
-            /*socketChannel.write(ByteBuffer.wrap(header.getBytes()));
-            while (buffer.hasRemaining()) {
-                socketChannel.write();
-            }
-            socketChannel.write(newBuffer);
-            socketChannel.close();*/
             socketChannel.write(newBuffer, null, handler);
         } catch (IOException e) {
             e.printStackTrace();

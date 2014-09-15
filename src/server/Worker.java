@@ -5,23 +5,24 @@ import handlers.SocketReadHandler;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Worker implements Runnable {
     public static final int TIMEOUT = 100;
 
+    private ThreadPool pool;
     private AsynchronousSocketChannel channel;
-    private ConcurrentLinkedQueue<AsynchronousSocketChannel> channels = new ConcurrentLinkedQueue<>();
+
+    public Worker(ThreadPool pool) {
+        this.pool = pool;
+    }
 
     public synchronized void run() {
         while (true) {
-            channel = channels.poll();
             if(channel == null) {
                 try {
                     wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
-                    //continue;
                 }
             }
             try {
@@ -31,6 +32,7 @@ public class Worker implements Runnable {
             }
             finally {
                 channel = null;
+                pool.addWorker(this);
             }
         }
     }
@@ -40,14 +42,12 @@ public class Worker implements Runnable {
             ByteBuffer buffer = ByteBuffer.allocate(1024 * 10);
             channel.read(buffer, TIMEOUT, new SocketReadHandler<Integer, Integer>(buffer, channel));
         }
-        catch (Exception e) {
-            e.printStackTrace();
+        catch (Exception ignored) {
         }
     }
 
-    public synchronized void addChannel(AsynchronousSocketChannel channel) {
+    public synchronized void setChannel(AsynchronousSocketChannel channel) {
         if(channel != null) {
-            channels.add(channel);
             this.channel = channel;
             notify();
         }
