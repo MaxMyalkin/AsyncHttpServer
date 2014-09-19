@@ -37,14 +37,6 @@ public class Parameters {
             if (suffixIdx != -1) {
                 suffix = path.substring(suffixIdx, path.length());
             }
-            switch (method) {
-                case "GET":
-                case "HEAD":
-                    code = 200;
-                    break;
-                default:
-                    code = 405;
-            }
         }
     }
 

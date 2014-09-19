@@ -24,7 +24,16 @@ public class Handler {
     }
 
     public void parseRequest() throws IOException {
-        readFile();
+        switch (parameters.getMethod()) {
+            case "GET":
+            case "HEAD":
+                parameters.setCode(200);
+                readFile();
+                break;
+            default:
+                parameters.setCode(405);
+                writeToSocket();
+        }
     }
 
 
